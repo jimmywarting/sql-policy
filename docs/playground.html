@@ -1,0 +1,856 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>sql-policy Playground</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&family=Silkscreen&display=swap">
+<style>
+/* Layout: full width. Table list in a sidebar, the selected table on top of the main area, the query and its result below it. */
+:root {
+  --bg: #86b8b0;
+  --side: #74a9a1;
+  --panel: #a9d1c9;
+  --sheet: #d3e8e3;
+  --ink: #10282b;
+  --ink-soft: #213f42;
+  --rule: #6c9e97;
+  --code-bg: #13302f;
+  --code-fg: #e4f1ec;
+  --code-dim: #8fb3ab;
+  --ruby: #c8364f;
+  --ruby-ink: #861a2e;
+  --ruby-tint: #ecc5c2;
+  --gold: #f3c14b;
+  --gold-tint: #efe0a8;
+  --sky: #9cc9ff;
+
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --pixel: "Silkscreen", var(--mono);
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); background: var(--bg); }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 0.95rem/1.5 var(--body); -webkit-font-smoothing: antialiased; }
+[hidden] { display: none !important; }
+a { color: var(--ink); }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+code { font-family: var(--mono); font-size: 0.9em; }
+
+.label { font-family: var(--pixel); font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); }
+
+/* Shell */
+.app { display: grid; grid-template-columns: 15rem minmax(0, 1fr); min-height: 100vh; }
+@media (max-width: 50rem) { .app { grid-template-columns: minmax(0, 1fr); } }
+
+aside {
+  background: var(--side);
+  border-right: 2px solid var(--ink);
+  padding-block: 1rem;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: 16px;
+  display: flex; flex-direction: column; gap: 1.25rem;
+}
+@media (min-width: 50.01rem) { aside { position: sticky; top: 0; height: 100vh; overflow-y: auto; } }
+@media (max-width: 50rem) { aside { border-right: 0; border-bottom: 2px solid var(--ink); padding-right: max(16px, env(safe-area-inset-right, 0px)); } }
+.brand { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.brand a { font-family: var(--pixel); text-decoration: none; }
+.brand small a { font-family: var(--body); font-size: 0.85rem; font-weight: 700; text-decoration: underline; text-decoration-color: var(--ruby); }
+.nav-group { display: grid; gap: 0.3rem; }
+.nav-group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.nav-item {
+  width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;
+  border: 0; background: transparent; border-radius: 6px; padding: 0.4rem 0.55rem; text-align: left;
+  font-family: var(--mono); font-size: 0.85rem;
+}
+.nav-item:hover { background: var(--panel); }
+.nav-item[aria-current="true"] { background: var(--ink); color: var(--code-fg); }
+.nav-item .count { font-size: 0.75rem; opacity: 0.75; }
+.nav-item .no { color: var(--ruby-ink); font-family: var(--pixel); font-size: 0.58rem; }
+.nav-item[aria-current="true"] .no { color: #ffc9d1; }
+.side-foot { margin-top: auto; display: grid; gap: 0.5rem; }
+.boot { font-family: var(--mono); font-size: 0.75rem; color: var(--ink-soft); }
+
+main {
+  min-width: 0;
+  padding-block: 1.25rem 3rem;
+  padding-left: 1.5rem;
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 1.75rem; align-content: start;
+}
+@media (max-width: 50rem) { main { padding-left: max(16px, env(safe-area-inset-left, 0px)); } }
+section { display: grid; gap: 0.6rem; min-width: 0; }
+.head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 1rem; }
+.head h1, .head h2 { margin: 0; font-family: var(--mono); font-weight: 600; font-size: 1.35rem; }
+.head h2 { font-size: 1.1rem; }
+.facts { display: flex; flex-wrap: wrap; gap: 0.3rem 1.25rem; font-size: 0.88rem; color: var(--ink-soft); }
+.facts b { color: var(--ink); }
+
+/* Data tables */
+.scroll { overflow: auto; max-height: 26rem; border: 2px solid var(--ink); border-radius: 8px; background: var(--sheet); }
+table.data { border-collapse: separate; border-spacing: 0; min-width: 100%; font: 0.84rem/1.4 var(--mono); font-variant-numeric: tabular-nums; }
+table.data th, table.data td { padding: 0.4rem 0.75rem; border-bottom: 1px solid var(--rule); border-right: 1px solid var(--rule); text-align: left; white-space: nowrap; vertical-align: top; }
+table.data th:last-child, table.data td:last-child { border-right: 0; }
+table.data thead th { position: sticky; top: 0; z-index: 1; background: var(--panel); border-bottom: 2px solid var(--ink); vertical-align: bottom; }
+table.data tbody tr:last-child td { border-bottom: 0; }
+th .col { display: flex; align-items: center; gap: 0.35rem; font-weight: 600; }
+th .type { display: block; font-weight: 400; font-size: 0.72rem; color: var(--ink-soft); margin-top: 0.1rem; }
+th .flags { display: flex; gap: 0.2rem; margin-top: 0.3rem; flex-wrap: wrap; }
+td.null { color: var(--ink-soft); font-style: italic; }
+td.num { text-align: right; }
+th.rownum, td.rownum { color: var(--ink-soft); text-align: right; background: var(--panel); position: sticky; left: 0; }
+thead th.rownum { z-index: 2; }
+
+/* Column access colours: the whole column carries its state */
+.c-hidden { background-color: var(--ruby-tint); }
+.c-write { background-color: var(--gold-tint); }
+thead th.c-hidden { background: #e2aeab; }
+thead th.c-write { background: #e8d27f; }
+tr.filtered td:not(.rownum) { color: #4f6d6f; background-image: repeating-linear-gradient(135deg, transparent 0 6px, rgba(16, 40, 43, 0.06) 6px 12px); }
+tr.changed td { box-shadow: inset 0 2px 0 var(--gold), inset 0 -2px 0 var(--gold); }
+
+.chip { font-family: var(--pixel); font-size: 0.58rem; letter-spacing: 0.04em; text-transform: uppercase; padding: 0.08rem 0.35rem; border-radius: 3px; white-space: nowrap; font-style: normal; display: inline-block; }
+.chip.pk { background: var(--ink); color: var(--gold); }
+.chip.hidden { background: var(--ruby); color: #fff; }
+.chip.ro { background: rgba(16, 40, 43, 0.15); color: var(--ink); }
+.chip.write { background: var(--gold); color: var(--ink); }
+.chip.forced { background: var(--ink); color: #fff; }
+.chip.denied { border: 1.5px solid var(--ruby-ink); color: var(--ruby-ink); }
+.chip.view { background: var(--sky); color: var(--ink); }
+.legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; font-size: 0.8rem; color: var(--ink-soft); }
+.legend span { display: inline-flex; gap: 0.3rem; align-items: center; }
+
+/* Query */
+.runbar { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; }
+.seg { display: inline-flex; border: 2px solid var(--ink); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: transparent; padding: 0.3rem 0.75rem; font-weight: 700; font-size: 0.88rem; }
+.seg button + button { border-left: 2px solid var(--ink); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--code-fg); }
+.presets { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.pill { border: 1.5px solid var(--ink); background: transparent; border-radius: 999px; padding: 0.1rem 0.6rem; font-size: 0.82rem; }
+.pill[aria-pressed="true"] { background: var(--ink); color: var(--code-fg); }
+.inline-input { display: inline-flex; align-items: center; gap: 0.4rem; }
+input.code, textarea.code {
+  background: var(--code-bg); color: var(--code-fg); border: 2px solid var(--ink); border-radius: 6px;
+  font: 0.85rem/1.5 var(--mono); padding: 0.3rem 0.55rem; min-width: 0;
+}
+input.code { width: 11rem; }
+textarea.code { width: 100%; resize: vertical; padding: 0.7rem 0.85rem; }
+#sql { min-height: 7rem; }
+select {
+  font: inherit; font-size: 0.88rem; color: var(--ink); background: var(--panel);
+  border: 2px solid var(--ink); border-radius: 6px; padding: 0.25rem 0.5rem; max-width: 100%;
+}
+#policy-src { min-height: 24rem; }
+.actions { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
+.btn { border: 2px solid var(--ink); border-radius: 7px; padding: 0.4rem 1rem; font-weight: 700; background: transparent; }
+.btn.primary { background: var(--gold); box-shadow: 0 3px 0 var(--ink); }
+.btn.primary:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+.btn.danger { border-color: var(--ruby-ink); color: var(--ruby-ink); }
+.btn:hover { background-color: var(--panel); }
+.btn.primary:hover { background: #f7cf6b; }
+.hint { font-size: 0.8rem; color: var(--ink-soft); }
+kbd { font-family: var(--mono); font-size: 0.75rem; border: 1px solid var(--ink-soft); border-bottom-width: 2px; border-radius: 4px; padding: 0 0.3rem; }
+.error { font-family: var(--mono); font-size: 0.8rem; color: var(--ruby-ink); font-weight: 600; }
+
+/* Result */
+.status { display: flex; flex-wrap: wrap; gap: 0.5rem 0.8rem; align-items: center; }
+.badge { font-family: var(--pixel); font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 4px; }
+.badge.ok { background: var(--gold); color: var(--ink); }
+.badge.no { background: var(--ruby); color: #fff; }
+.badge.info { background: var(--ink); color: var(--code-fg); }
+.status .msg { font-family: var(--mono); font-size: 0.85rem; }
+.explain { margin: 0; color: var(--ink-soft); max-width: 60rem; }
+.executed { margin: 0; background: var(--code-bg); color: var(--code-fg); border-radius: 8px; padding: 0.7rem 0.85rem; font: 0.82rem/1.55 var(--mono); white-space: pre-wrap; word-break: break-word; }
+.executed .k { color: var(--sky); font-weight: 600; }
+.executed .s { color: var(--gold); }
+.executed .p { color: #8fe3c0; font-weight: 600; }
+.empty { padding: 0.8rem; color: var(--ink-soft); font-family: var(--mono); font-size: 0.85rem; }
+
+details.policy summary { cursor: pointer; font-weight: 700; }
+details.policy[open] { display: grid; gap: 0.6rem; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand"><a href="index.html">sql-policy</a><small><a href="index.html">Docs</a></small></div>
+    <div class="nav-group">
+      <span class="label">Tables</span>
+      <ul id="nav-tables"></ul>
+    </div>
+    <div class="nav-group">
+      <span class="label">Views</span>
+      <ul id="nav-views"></ul>
+    </div>
+    <div class="side-foot">
+      <button class="btn danger" id="reset-db" type="button">Reset database</button>
+      <span class="boot" id="boot">Loading SQLite…</span>
+    </div>
+  </aside>
+
+  <main>
+    <section aria-labelledby="table-name">
+      <div class="head">
+        <h1 id="table-name">…</h1>
+        <div class="facts" id="table-facts"></div>
+      </div>
+      <div class="legend">
+        <span><i class="chip pk">PK</i> primary key</span>
+        <span><i class="chip ro">read-only</i> client can read, not write</span>
+        <span><i class="chip write">insert</i><i class="chip write">update</i> client can write</span>
+        <span><i class="chip forced">forced</i> server sets it on write</span>
+        <span><i class="chip hidden">hidden</i> client can't see it</span>
+        <span>Striped rows are outside the client's row filter.</span>
+      </div>
+      <div class="scroll" id="table-data"></div>
+    </section>
+
+    <section aria-labelledby="query-title">
+      <div class="head">
+        <h2 id="query-title">Query</h2>
+        <span class="inline-input">
+          <label class="label" for="example">Example</label>
+          <select id="example"></select>
+        </span>
+      </div>
+      <div class="runbar">
+        <div class="seg" role="group" aria-label="Run as">
+          <button type="button" id="mode-client" aria-pressed="true">Run as client</button>
+          <button type="button" id="mode-admin" aria-pressed="false">Run as admin</button>
+        </div>
+        <div class="inline-input" id="ctx-box">
+          <label class="label" for="ctx">ctx</label>
+          <input class="code" id="ctx" value='{ "uid": 1 }' spellcheck="false">
+          <div class="presets" id="ctx-presets"></div>
+        </div>
+      </div>
+      <textarea class="code" id="sql" spellcheck="false" aria-label="SQL query"></textarea>
+      <div class="actions">
+        <button class="btn primary" id="run" type="button">Run query</button>
+        <span class="inline-input" id="params-box">
+          <label class="label" for="params">params</label>
+          <input class="code" id="params" value="[]" spellcheck="false">
+        </span>
+        <span class="hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> runs the query</span>
+        <span class="error" id="input-error" role="alert"></span>
+      </div>
+    </section>
+
+    <section aria-labelledby="result-title" id="result-section">
+      <div class="head"><h2 id="result-title">Result</h2></div>
+      <div id="result-status"></div>
+      <div class="scroll" id="result-data"><div class="empty">Run a query to see what it returns.</div></div>
+    </section>
+
+    <section>
+      <details class="policy">
+        <summary>Policy</summary>
+        <span class="hint">A JavaScript expression passed to <code>createPolicy</code>. Apply it, and the table flags and every client query follow the new rules.</span>
+        <textarea class="code" id="policy-src" spellcheck="false" aria-label="Policy source"></textarea>
+        <div class="actions">
+          <button class="btn primary" id="policy-apply" type="button">Apply policy</button>
+          <button class="btn" id="policy-reset" type="button">Restore default</button>
+          <span class="error" id="policy-error" role="alert"></span>
+        </div>
+      </details>
+    </section>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/node-sql-parser@5.4.0/umd/sqlite.umd.js"></script>
+<script type="importmap">{ "imports": { "node-sql-parser/build/sqlite.js": "./lib/node-sql-parser.js" } }</script>
+<script type="module">
+import { createPolicy } from './lib/index.js'
+
+const SCHEMA = `
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY,
+  username TEXT NOT NULL UNIQUE,
+  avatar_url TEXT,
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE auth_sessions (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL,
+  revoked INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE leaderboard (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id),
+  username TEXT NOT NULL,
+  score INTEGER NOT NULL DEFAULT 0,
+  rank INTEGER NOT NULL,
+  season_id INTEGER NOT NULL
+);
+
+CREATE TABLE player_inventory (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  item_id INTEGER NOT NULL REFERENCES game_items(id),
+  quantity INTEGER NOT NULL DEFAULT 1,
+  equipped INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE game_items (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  rarity TEXT NOT NULL,
+  icon_url TEXT
+);
+
+CREATE TABLE game_config (
+  key TEXT PRIMARY KEY,
+  display_value TEXT,
+  internal_value TEXT,
+  environment TEXT NOT NULL
+);
+
+INSERT INTO users (id, username, avatar_url, email, password_hash) VALUES
+  (1, 'PixelKnight', '/avatars/knight.png', 'knight@example.test', 'DEMO_HASH_001'),
+  (2, 'StarFox', '/avatars/fox.png', 'fox@example.test', 'DEMO_HASH_002');
+
+INSERT INTO game_items (id, name, description, rarity, icon_url) VALUES
+  (1, 'Iron Sword', 'A basic starter weapon', 'common', '/items/sword.png'),
+  (2, 'Dragon Gem', 'A rare magical gem', 'legendary', '/items/gem.png');
+
+INSERT INTO player_inventory (user_id, item_id, quantity, equipped) VALUES
+  (1, 1, 1, 1), (1, 2, 3, 0), (2, 1, 2, 0);
+
+INSERT INTO leaderboard (user_id, username, score, rank, season_id) VALUES
+  (1, 'PixelKnight', 15200, 1, 1), (2, 'StarFox', 12400, 2, 1);
+
+INSERT INTO game_config (key, display_value, internal_value, environment) VALUES
+  ('max_party_size', '4', '4', 'production'),
+  ('maintenance_mode', 'false', 'internal-flag-001', 'production');
+
+INSERT INTO auth_sessions (user_id, token_hash, expires_at) VALUES
+  (1, 'DEMO_TOKEN_HASH_A', '2026-12-31 23:59:59'),
+  (2, 'DEMO_TOKEN_HASH_B', '2026-12-31 23:59:59');
+
+CREATE VIEW public_users AS SELECT id, username, avatar_url, created_at FROM users;
+CREATE VIEW public_game_items AS SELECT id, name, description, rarity, icon_url FROM game_items;
+CREATE VIEW public_leaderboard AS SELECT user_id, username, score, rank, season_id FROM leaderboard;
+`
+
+const DEFAULT_POLICY = `({
+  maxRows: 100,
+  tables: {
+    users: {
+      columns: ['id', 'username', 'avatar_url', 'created_at'],
+      select: true
+    },
+    leaderboard: {
+      columns: ['user_id', 'username', 'score', 'rank', 'season_id'],
+      select: true
+      // Try: delete: ctx => ctx.admin === true
+    },
+    game_items: {
+      columns: ['id', 'name', 'description', 'rarity', 'icon_url'],
+      select: true
+    },
+    game_config: {
+      columns: ['key', 'display_value'],
+      select: true
+    },
+    player_inventory: {
+      columns: ['id', 'item_id', 'quantity', 'equipped'],
+      select: { where: ctx => ['user_id = ?', ctx.uid] },
+      insert: {
+        columns: ['item_id', 'quantity'],
+        set: ctx => ({ user_id: ctx.uid })
+      },
+      update: { columns: ['quantity', 'equipped'] },
+      delete: true
+    }
+    // auth_sessions and the views are not listed, so clients can't reach them
+  }
+})`
+
+const CTX_PRESETS = [
+  ['PixelKnight', '{ "uid": 1 }'],
+  ['StarFox', '{ "uid": 2 }'],
+  ['Signed out', '{}']
+]
+
+// Grouped examples: [label, table to show, sql, params, ctx]. A null table
+// keeps the current one, for statements that never reach a table.
+const PLAYER = '{ "uid": 1 }'
+const EXAMPLES = [
+  ['Reads', [
+    ['My inventory', 'player_inventory', 'SELECT g.name, g.rarity, i.quantity, i.equipped\nFROM player_inventory i\nJOIN game_items g ON g.id = i.item_id\nORDER BY g.name', '[]', PLAYER],
+    ['Same query as StarFox', 'player_inventory', 'SELECT g.name, g.rarity, i.quantity, i.equipped\nFROM player_inventory i\nJOIN game_items g ON g.id = i.item_id\nORDER BY g.name', '[]', '{ "uid": 2 }'],
+    ['Leaderboard with avatars', 'leaderboard', 'SELECT l.rank, u.username, u.avatar_url, l.score\nFROM leaderboard l\nJOIN users u ON u.id = l.user_id\nWHERE l.season_id = ?\nORDER BY l.rank', '[1]', PLAYER],
+    ['SELECT * on users', 'users', 'SELECT * FROM users', '[]', PLAYER],
+    ['Items per rarity', 'game_items', 'SELECT rarity, count(*) AS n\nFROM game_items\nGROUP BY rarity', '[]', PLAYER],
+    ['Public config', 'game_config', 'SELECT * FROM game_config', '[]', PLAYER]
+  ]],
+  ['Writes', [
+    ['Pick up loot', 'player_inventory', 'INSERT INTO player_inventory (item_id, quantity)\nVALUES (?, ?)', '[2, 1]', PLAYER],
+    ['99 Dragon Gems (allowed!)', 'player_inventory', 'INSERT INTO player_inventory (item_id, quantity)\nVALUES (2, 99)', '[]', PLAYER],
+    ['Equip everything', 'player_inventory', 'UPDATE player_inventory SET equipped = 1', '[]', PLAYER],
+    ['Delete everything', 'player_inventory', 'DELETE FROM player_inventory', '[]', PLAYER]
+  ]],
+  ['Attacks', [
+    ['Read password hashes', 'users', 'SELECT username, password_hash FROM users', '[]', PLAYER],
+    ['Guess emails with LIKE', 'users', "SELECT username FROM users\nWHERE email LIKE 'k%'", '[]', PLAYER],
+    ['Sort by a hidden column', 'users', 'SELECT username FROM users\nORDER BY password_hash', '[]', PLAYER],
+    ['Steal session tokens', 'auth_sessions', 'SELECT * FROM auth_sessions', '[]', PLAYER],
+    ['UNION smuggling', 'auth_sessions', 'SELECT username FROM users\nUNION\nSELECT token_hash FROM auth_sessions', '[]', PLAYER],
+    ['CTE named like the table', 'auth_sessions', 'WITH auth_sessions AS (SELECT * FROM auth_sessions)\nSELECT * FROM auth_sessions', '[]', PLAYER],
+    ['Read through a view', 'public_users', 'SELECT * FROM public_users', '[]', PLAYER],
+    ['Internal config value', 'game_config', 'SELECT key, internal_value FROM game_config', '[]', PLAYER],
+    ['Escape the row filter with OR', 'player_inventory', 'SELECT * FROM player_inventory\nWHERE id = 3 OR 1 = 1', '[]', PLAYER],
+    ['Put loot in StarFox\'s bag', 'player_inventory', 'INSERT INTO player_inventory (item_id, user_id)\nVALUES (2, 2)', '[]', PLAYER],
+    ['Take StarFox\'s item', 'player_inventory', 'UPDATE player_inventory SET quantity = 0\nWHERE id = 3', '[]', PLAYER],
+    ['Change owner', 'player_inventory', 'UPDATE player_inventory SET user_id = 1', '[]', PLAYER],
+    ['Boost my score', 'leaderboard', 'UPDATE leaderboard SET score = 999999\nWHERE user_id = 1', '[]', PLAYER],
+    ['Read the schema', null, 'SELECT sql FROM sqlite_master', '[]', PLAYER],
+    ['Stacked statement', null, 'SELECT 1; DROP TABLE users', '[]', PLAYER],
+    ['Allocate a gigabyte', null, 'SELECT randomblob(1000000000)', '[]', PLAYER]
+  ]]
+]
+
+const CODE_HELP = {
+  SYNTAX: 'The SQL could not be parsed.',
+  UNSUPPORTED: 'Valid SQL, but a feature sql-policy never allows.',
+  TOO_LONG: 'Longer than maxLength.',
+  PARAMS: 'The number of ? does not match params.',
+  TABLE_DENIED: 'The table is not in the policy, so for the client it does not exist.',
+  COLUMN_DENIED: 'The write uses a column the client may not write.',
+  OPERATION_DENIED: 'The operation is not allowed on that table for this ctx.',
+  FUNCTION_DENIED: 'The function is not in the allowlist.'
+}
+
+const $ = id => document.getElementById(id)
+const lc = s => String(s).toLowerCase()
+const quoteId = name => '`' + String(name).replace(/`/g, '``') + '`'
+const escapeHtml = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+
+let SQL, db, policy, policyConfig
+let ctx = { uid: 1 }
+let mode = 'client'
+let current = 'player_inventory'
+/** Rowids changed by the last write, per table */
+let changed = new Map()
+
+/* ---------- database ---------- */
+
+/** Run one statement directly and return the columns and rows it produced */
+function query (sql, params = []) {
+  const stmt = db.prepare(sql)
+  try {
+    stmt.bind(params)
+    const rows = []
+    while (stmt.step()) rows.push(stmt.get())
+    return { columns: stmt.getColumnNames(), rows }
+  } finally {
+    stmt.free()
+  }
+}
+
+function objects () {
+  return query("SELECT name, type FROM sqlite_master WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%' ORDER BY name").rows
+    .map(([name, type]) => ({ name, type }))
+}
+
+/** Every row of every table, keyed by rowid, to see what a write changed */
+function snapshot () {
+  const snap = new Map()
+  for (const { name, type } of objects()) {
+    if (type !== 'table') continue
+    const rows = new Map()
+    for (const row of query(`SELECT rowid, * FROM ${quoteId(name)}`).rows) rows.set(row[0], JSON.stringify(row.slice(1)))
+    snap.set(name, rows)
+  }
+  return snap
+}
+
+function diff (before, after) {
+  const out = new Map()
+  for (const [table, rows] of after) {
+    const old = before.get(table) ?? new Map()
+    const ids = new Set([...rows].filter(([id, json]) => old.get(id) !== json).map(([id]) => id))
+    if (ids.size) out.set(table, ids)
+  }
+  return out
+}
+
+function resetDb () {
+  db?.close()
+  db = new SQL.Database()
+  db.exec(SCHEMA)
+  changed = new Map()
+}
+
+/* ---------- policy ---------- */
+
+function applyPolicy (src) {
+  try {
+    const config = new Function(`"use strict"; return (${src})`)()
+    policy = createPolicy(config)
+    policyConfig = config
+    $('policy-error').textContent = ''
+    return true
+  } catch (err) {
+    $('policy-error').textContent = err.message
+    return false
+  }
+}
+
+/** What the current ctx may do with a table, or null when it is not in the policy */
+function access (table) {
+  const entry = Object.entries(policyConfig.tables ?? {}).find(([name]) => lc(name) === lc(table))
+  if (!entry) return null
+  const [name, spec] = entry
+  const ops = policy.schema(ctx)[name]?.operations ?? []
+  const writable = op => {
+    if (!ops.includes(op)) return new Set()
+    const rule = spec[op]
+    return new Set(((rule && typeof rule === 'object' && rule.columns) || spec.columns).map(lc))
+  }
+  const forced = new Set()
+  for (const op of ['insert', 'update']) {
+    const set = ops.includes(op) && spec[op]?.set
+    if (!set) continue
+    try {
+      for (const column of Object.keys(set(ctx) ?? {})) forced.add(lc(column))
+    } catch {}
+  }
+  return { spec, ops, visible: new Set(spec.columns.map(lc)), insert: writable('insert'), update: writable('update'), forced }
+}
+
+/**
+ * Rowids inside the client's row filter, or null for every row. Runs the
+ * policy's own select filter against the table.
+ */
+function visibleRows (table, acc) {
+  if (!acc.ops.includes('select')) return { ids: new Set(), text: 'none, SELECT is not allowed' }
+  const rule = acc.spec.select
+  const where = rule && typeof rule === 'object' && rule.where ? rule.where(ctx) : true
+  if (where === true || where == null) return { ids: null, text: 'every row' }
+  if (where === false) return { ids: new Set(), text: 'none' }
+  const [sql, ...params] = Array.isArray(where) ? where : [where]
+  const text = sql + (params.length ? ` with ${JSON.stringify(params)}` : '')
+  try {
+    return { ids: new Set(query(`SELECT rowid FROM ${quoteId(table)} WHERE (${sql})`, params).rows.map(r => r[0])), text }
+  } catch (err) {
+    return { ids: new Set(), text: `${text} (${err.message})` }
+  }
+}
+
+/* ---------- rendering ---------- */
+
+function cell (value) {
+  if (value === null || value === undefined) return '<td class="null">NULL</td>'
+  if (value instanceof Uint8Array) return `<td>X'${[...value].map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase()}'</td>`
+  return `<td class="${typeof value === 'number' ? 'num' : ''}">${escapeHtml(value)}</td>`
+}
+
+function renderNav () {
+  const list = objects()
+  const item = ({ name }) => {
+    const acc = access(name)
+    const side = !acc ? '<span class="no">DENIED</span>' : `<span class="count">${acc.ops.map(o => o[0].toUpperCase()).join('') || '–'}</span>`
+    return `<li><button type="button" class="nav-item" data-table="${escapeHtml(name)}" aria-current="${name === current}"><span>${escapeHtml(name)}</span>${side}</button></li>`
+  }
+  $('nav-tables').innerHTML = list.filter(o => o.type === 'table').map(item).join('')
+  $('nav-views').innerHTML = list.filter(o => o.type === 'view').map(item).join('')
+}
+
+/** The selected table as the admin sees it, flagged for the current ctx */
+function renderTable () {
+  const obj = objects().find(o => o.name === current)
+  if (!obj) return
+  const isTable = obj.type === 'table'
+  const info = query(`PRAGMA table_info(${quoteId(current)})`).rows.map(([, name, type, notnull, , pk]) => ({ name, type, notnull, pk }))
+  const acc = access(current)
+  const filter = acc ? visibleRows(current, acc) : null
+  const { rows } = query(`SELECT ${isTable ? 'rowid, ' : ''}* FROM ${quoteId(current)}`)
+  const marks = changed.get(current) ?? new Set()
+
+  const cols = info.map(c => {
+    const name = lc(c.name)
+    const flags = []
+    let cls = ''
+    if (c.pk) flags.push('<i class="chip pk">PK</i>')
+    if (!acc || (!acc.visible.has(name) && !acc.forced.has(name))) {
+      flags.push('<i class="chip hidden">hidden</i>')
+      cls = 'c-hidden'
+    } else {
+      if (acc.forced.has(name)) flags.push('<i class="chip forced">forced</i>')
+      if (acc.visible.has(name)) {
+        const ins = acc.insert.has(name) && !acc.forced.has(name)
+        const upd = acc.update.has(name)
+        if (ins) flags.push('<i class="chip write">insert</i>')
+        if (upd) flags.push('<i class="chip write">update</i>')
+        if (ins || upd) cls = 'c-write'
+        else if (!acc.forced.has(name)) flags.push('<i class="chip ro">read-only</i>')
+      } else {
+        cls = 'c-hidden'
+      }
+    }
+    return { ...c, flags, cls }
+  })
+
+  $('table-name').textContent = current
+  const opText = acc ? (acc.ops.length ? acc.ops.map(o => o.toUpperCase()).join(', ') : 'nothing') : null
+  $('table-facts').innerHTML = [
+    `<span>${isTable ? 'table' : '<i class="chip view">view</i>'} · <b>${rows.length}</b> row${rows.length === 1 ? '' : 's'}</span>`,
+    acc
+      ? `<span>Client may: <b>${opText}</b></span><span>Row filter: <b>${escapeHtml(filter.text)}</b></span>`
+      : '<span><i class="chip denied">not in policy</i> clients get TABLE_DENIED</span>'
+  ].join('')
+
+  const head = `<tr><th class="rownum">#</th>${cols.map(c => `<th class="${c.cls}" scope="col"><span class="col">${escapeHtml(c.name)}</span><span class="type">${escapeHtml(c.type || 'ANY')}${c.notnull ? ' NOT NULL' : ''}</span><span class="flags">${c.flags.join('')}</span></th>`).join('')}</tr>`
+  const body = rows.map((row, i) => {
+    const rowid = isTable ? row[0] : null
+    const values = isTable ? row.slice(1) : row
+    const outside = acc && filter.ids !== null && !filter.ids.has(rowid)
+    const cls = [outside ? 'filtered' : '', marks.has(rowid) ? 'changed' : ''].join(' ').trim()
+    const title = outside ? ' title="Outside the client\'s row filter"' : ''
+    return `<tr class="${cls}"${title}><td class="rownum">${i + 1}</td>${values.map((v, j) => cell(v).replace('<td class="', `<td class="${cols[j].cls} `)).join('')}</tr>`
+  }).join('')
+  $('table-data').innerHTML = `<table class="data"><thead>${head}</thead><tbody>${body || `<tr><td class="rownum"></td><td colspan="${cols.length}" class="null">empty</td></tr>`}</tbody></table>`
+}
+
+function renderAll () {
+  renderNav()
+  renderTable()
+}
+
+function highlight (sql) {
+  return sql.split(/('(?:[^']|'')*'|\?\d+)/g).map((part, i) => {
+    if (i % 2) return `<span class="${part.startsWith("'") ? 's' : 'p'}">${escapeHtml(part)}</span>`
+    return escapeHtml(part).replace(/\b(SELECT|FROM|WHERE|JOIN|INNER|LEFT|ON|AS|AND|OR|ORDER|BY|LIMIT|INSERT|INTO|VALUES|UPDATE|SET|DELETE|GROUP|HAVING|UNION|WITH|CASE|WHEN|THEN|ELSE|END)\b/g, '<span class="k">$1</span>')
+  }).join('')
+}
+
+function showResult (status, data) {
+  $('result-status').innerHTML = status
+  $('result-data').innerHTML = data ?? ''
+  $('result-data').hidden = data == null
+}
+
+/** The query result: exactly the columns the statement returned */
+function resultTable ({ columns, rows }) {
+  if (!columns.length) return null
+  const head = `<tr><th class="rownum">#</th>${columns.map(c => `<th scope="col"><span class="col">${escapeHtml(c)}</span></th>`).join('')}</tr>`
+  const body = rows.map((r, i) => `<tr><td class="rownum">${i + 1}</td>${r.map(cell).join('')}</tr>`).join('')
+  return `<table class="data"><thead>${head}</thead><tbody>${body || `<tr><td class="rownum"></td><td colspan="${columns.length}" class="null">no rows</td></tr>`}</tbody></table>`
+}
+
+/* ---------- running queries ---------- */
+
+function readInputs () {
+  $('input-error').textContent = ''
+  try {
+    const params = JSON.parse($('params').value || '[]')
+    if (!Array.isArray(params)) throw new Error('params must be a JSON array')
+    if (mode === 'client') {
+      const value = JSON.parse($('ctx').value || '{}')
+      if (value === null || typeof value !== 'object' || Array.isArray(value)) throw new Error('ctx must be a JSON object')
+      ctx = value
+    }
+    return params
+  } catch (err) {
+    $('input-error').textContent = err.message
+    return null
+  }
+}
+
+/** Execute SQL that is already allowed, and report rows or changes */
+function execute (sql, params) {
+  const before = snapshot()
+  const result = query(sql, params)
+  const modified = db.getRowsModified()
+  changed = diff(before, snapshot())
+  // Follow a write to the table it changed
+  const [first] = changed.keys()
+  if (first && !changed.has(current)) current = first
+  return { result, modified, wrote: changed.size > 0 }
+}
+
+function run () {
+  const params = readInputs()
+  if (!params) return
+  const sql = $('sql').value
+
+  if (mode === 'admin') {
+    try {
+      const { result, modified, wrote } = execute(sql, params)
+      const status = wrote || !result.columns.length
+        ? `<div class="status"><span class="badge info">ADMIN</span><span class="msg">${modified} row${modified === 1 ? '' : 's'} changed. The policy was not applied.</span></div>`
+        : `<div class="status"><span class="badge info">ADMIN</span><span class="msg">${result.rows.length} row${result.rows.length === 1 ? '' : 's'}, no policy applied</span></div>`
+      showResult(status, resultTable(result))
+    } catch (err) {
+      showResult(`<div class="status"><span class="badge no">SQLITE ERROR</span><span class="msg">${escapeHtml(err.message)}</span></div>`)
+    }
+    renderAll()
+    return
+  }
+
+  let authorized
+  try {
+    authorized = policy.authorize(sql, params, ctx)
+  } catch (err) {
+    const code = err.code ?? err.name
+    showResult(`<div class="status"><span class="badge no">${escapeHtml(code)}</span><span class="msg">${escapeHtml(err.message)}</span></div><p class="explain">${escapeHtml(CODE_HELP[code] ?? '')} Nothing was sent to the database.</p>`)
+    renderAll()
+    return
+  }
+
+  const executed = `<pre class="executed">${highlight(authorized.sql)}\n<span class="k">params</span> ${escapeHtml(JSON.stringify(authorized.params))}</pre>`
+  try {
+    const { result, modified } = execute(authorized.sql, authorized.params)
+    const status = authorized.kind === 'select'
+      ? `<div class="status"><span class="badge ok">${result.rows.length} ROW${result.rows.length === 1 ? '' : 'S'}</span><span class="msg">returned to the client · executed SQL:</span></div>${executed}`
+      : `<div class="status"><span class="badge ok">${modified} ${{ insert: 'INSERTED', update: 'UPDATED', delete: 'DELETED' }[authorized.kind]}</span><span class="msg">changed rows are outlined in the table above · executed SQL:</span></div>${executed}`
+    showResult(status, resultTable(result))
+  } catch (err) {
+    const hidden = /no such column/i.test(err.message)
+      ? 'The rewritten subquery only has the columns in the policy, so a hidden column does not exist for the client. SQLite refused before reading any data.'
+      : 'The policy allowed the statement, but SQLite refused it.'
+    showResult(`<div class="status"><span class="badge no">SQLITE ERROR</span><span class="msg">${escapeHtml(err.message)}</span></div><p class="explain">${hidden}</p>${executed}`)
+  }
+  renderAll()
+}
+
+function select (name) {
+  current = name
+  $('sql').value = `SELECT * FROM ${name}`
+  $('params').value = '[]'
+  $('example').value = ''
+  renderAll()
+}
+
+/** Show the example's table, fill in the query and run it as the client */
+function loadExample (value) {
+  if (!value) return
+  const [group, index] = value.split(':').map(Number)
+  const [, table, sql, params, ctxText] = EXAMPLES[group][1][index]
+  if (table) current = table
+  $('sql').value = sql
+  $('params').value = params
+  setMode('client')
+  setCtx(ctxText)
+  run()
+}
+
+function setMode (next) {
+  mode = next
+  $('mode-client').setAttribute('aria-pressed', String(mode === 'client'))
+  $('mode-admin').setAttribute('aria-pressed', String(mode === 'admin'))
+  $('ctx-box').hidden = mode === 'admin'
+}
+
+function setCtx (text) {
+  $('ctx').value = text
+  syncCtx()
+}
+
+function syncCtx () {
+  try {
+    const value = JSON.parse($('ctx').value || '{}')
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) throw new Error('ctx must be a JSON object')
+    ctx = value
+    $('input-error').textContent = ''
+  } catch (err) {
+    $('input-error').textContent = err.message
+    return
+  }
+  const text = JSON.stringify(ctx)
+  for (const b of $('ctx-presets').children) b.setAttribute('aria-pressed', String(JSON.stringify(JSON.parse(b.dataset.ctx)) === text))
+  renderAll()
+}
+
+/* ---------- wiring ---------- */
+
+$('example').innerHTML = '<option value="">Choose an example…</option>' + EXAMPLES.map(([group, items], g) =>
+  `<optgroup label="${group}">${items.map(([label], i) => `<option value="${g}:${i}">${escapeHtml(label)}</option>`).join('')}</optgroup>`
+).join('')
+$('example').addEventListener('change', ev => loadExample(ev.target.value))
+
+$('ctx-presets').innerHTML = CTX_PRESETS.map(([label, json]) => `<button type="button" class="pill" data-ctx="${escapeHtml(json)}">${label}</button>`).join('')
+$('ctx-presets').addEventListener('click', ev => {
+  const b = ev.target.closest('.pill')
+  if (b) setCtx(b.dataset.ctx)
+})
+$('ctx').addEventListener('change', syncCtx)
+$('mode-client').addEventListener('click', () => setMode('client'))
+$('mode-admin').addEventListener('click', () => setMode('admin'))
+$('run').addEventListener('click', run)
+for (const id of ['sql', 'params', 'ctx']) {
+  $(id).addEventListener('keydown', ev => {
+    if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) {
+      ev.preventDefault()
+      run()
+    }
+  })
+}
+for (const id of ['nav-tables', 'nav-views']) {
+  $(id).addEventListener('click', ev => {
+    const b = ev.target.closest('.nav-item')
+    if (b) select(b.dataset.table)
+  })
+}
+$('reset-db').addEventListener('click', () => {
+  resetDb()
+  showResult('', '<div class="empty">Database reset to the seed data.</div>')
+  renderAll()
+})
+$('policy-src').value = DEFAULT_POLICY
+$('policy-apply').addEventListener('click', () => {
+  if (applyPolicy($('policy-src').value)) renderAll()
+})
+$('policy-reset').addEventListener('click', () => {
+  $('policy-src').value = DEFAULT_POLICY
+  applyPolicy(DEFAULT_POLICY)
+  renderAll()
+})
+
+// Next to the page when it is published as an artifact, from the CDN on
+// GitHub Pages. Some servers answer a missing file with an HTML page and
+// status 200, so only accept a body that starts with the wasm magic number.
+async function loadWasm () {
+  for (const url of ['sql-wasm.wasm', 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.wasm']) {
+    try {
+      const res = await fetch(url)
+      if (!res.ok) continue
+      const bytes = await res.arrayBuffer()
+      const magic = new Uint8Array(bytes, 0, Math.min(4, bytes.byteLength))
+      if (magic.join() === '0,97,115,109') return bytes
+    } catch {}
+  }
+  throw new Error('Could not load SQLite (sql-wasm.wasm)')
+}
+
+try {
+  SQL = await initSqlJs({ wasmBinary: await loadWasm() })
+  resetDb()
+  applyPolicy(DEFAULT_POLICY)
+  setMode('client')
+  setCtx($('ctx').value)
+  select(current)
+  run()
+  $('boot').textContent = `SQLite ${query('SELECT sqlite_version()').rows[0][0]} · WebAssembly`
+} catch (err) {
+  $('boot').textContent = 'Could not start: ' + err.message
+}
+</script>
+</body>
+</html>

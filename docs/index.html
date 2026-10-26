@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>sql-policy</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=JetBrains+Mono:wght@400;600&family=Silkscreen&display=swap">
+<style>
+/* Layout: one mid-tone sage field, a narrow reading column, and dark "terminal" slabs for SQL. Tables in the schema map are the only cards. */
+:root {
+  --bg: #86b8b0;         /* sage teal: neither light nor dark */
+  --band: #74a9a1;       /* slightly deeper stripe for alternating sections */
+  --panel: #a9d1c9;      /* lighter tint for tables and cards */
+  --ink: #10282b;
+  --ink-soft: #213f42;
+  --rule: #5d918a;
+  --code-bg: #13302f;
+  --code-fg: #e4f1ec;
+  --code-dim: #8fb3ab;
+  --ruby: #c8364f;       /* denied, attacks */
+  --ruby-ink: #861a2e;
+  --gold: #f3c14b;       /* allowed, legendary */
+  --mint: #8fe3c0;
+  --sky: #9cc9ff;
+
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --pixel: "Silkscreen", var(--mono);
+
+  --step--1: 0.875rem;
+  --step-0: 1.0625rem;
+  --step-1: 1.3rem;
+  --step-2: 1.75rem;
+  --step-3: 2.5rem;
+  --step-4: clamp(3rem, 9vw, 5.75rem);
+  color-scheme: light;
+}
+
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); background: var(--bg); }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+img { max-width: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: var(--step-0)/1.6 var(--body);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--ink); text-decoration-color: var(--ruby); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+a:hover { color: var(--ruby-ink); }
+:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; border-radius: 3px; }
+
+.wrap {
+  max-width: 68rem;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.prose { max-width: 42rem; }
+.prose p, .prose li { color: var(--ink-soft); }
+.prose strong { color: var(--ink); }
+
+h1, h2, h3 { font-family: var(--display); line-height: 1.1; text-wrap: balance; margin: 0; }
+h2 { font-size: var(--step-3); font-weight: 800; letter-spacing: -0.02em; }
+h3 { font-size: var(--step-1); font-weight: 800; }
+p { margin: 0; }
+.eyebrow {
+  font-family: var(--pixel);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ruby-ink);
+}
+code { font-family: var(--mono); font-size: 0.88em; background: rgba(16, 40, 43, 0.1); padding: 0.08em 0.35em; border-radius: 4px; color: var(--ink); }
+pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+
+/* Header */
+.top { padding-block: 1.25rem; border-bottom: 2px solid var(--ink); }
+.top .wrap { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; align-items: center; justify-content: space-between; }
+.logo { font-family: var(--pixel); font-size: 1.05rem; text-decoration: none; }
+nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.25rem 1.1rem; }
+nav a { font-size: var(--step--1); font-weight: 700; text-decoration: none; }
+nav a:hover { text-decoration: underline; text-decoration-color: var(--ruby); }
+
+/* Hero */
+.hero { padding-block: 3.5rem 3rem; }
+.hero .wrap { display: grid; gap: 2.5rem; grid-template-columns: minmax(0, 1fr); }
+.hero h1 { font-size: var(--step-4); font-weight: 800; letter-spacing: -0.045em; line-height: 0.95; }
+.hero h1 span { color: var(--code-bg); -webkit-text-stroke: 0; background: linear-gradient(transparent 62%, var(--gold) 62%, var(--gold) 92%, transparent 92%); }
+.lede { font-size: var(--step-1); line-height: 1.45; max-width: 36rem; margin-top: 1.25rem; color: var(--ink); }
+.hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.5rem; }
+.tag { font-family: var(--mono); font-size: 0.8rem; border: 1.5px solid var(--ink); border-radius: 999px; padding: 0.15rem 0.7rem; }
+.cta { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-top: 1.75rem; }
+.play { background: var(--gold); color: var(--ink); border: 2px solid var(--ink); box-shadow: 0 3px 0 var(--ink); border-radius: 8px; padding: 0.55rem 1rem; font-weight: 700; text-decoration: none; }
+.play:hover { color: var(--ink); transform: translateY(1px); box-shadow: 0 2px 0 var(--ink); }
+.install { display: inline-flex; align-items: center; gap: 0.75rem; background: var(--code-bg); color: var(--code-fg); font-family: var(--mono); padding: 0.6rem 0.6rem 0.6rem 1rem; border-radius: 8px; max-width: 100%; }
+.install span::before { content: "$ "; color: var(--code-dim); }
+button { font: inherit; cursor: pointer; }
+.copy { background: var(--gold); color: var(--ink); border: 0; border-radius: 5px; font-family: var(--pixel); font-size: 0.75rem; padding: 0.35rem 0.6rem; }
+
+.flip { display: grid; gap: 0.75rem; min-width: 0; }
+.flip-label { display: flex; justify-content: space-between; gap: 1rem; font-family: var(--pixel); font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.flip-arrow { text-align: center; font-family: var(--pixel); font-size: 0.8rem; color: var(--ruby-ink); }
+
+@media (min-width: 60rem) {
+  .hero .wrap { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); align-items: center; }
+}
+
+/* Code slabs */
+.code {
+  background: var(--code-bg);
+  color: var(--code-fg);
+  border-radius: 10px;
+  padding: 1rem 1.15rem;
+  font: 0.84rem/1.6 var(--mono);
+  overflow-x: auto;
+  margin: 0;
+  min-width: 0;
+  white-space: pre;
+}
+.code.wrapline { white-space: pre-wrap; word-break: break-word; }
+.k { color: var(--sky); font-weight: 600; }
+.s { color: var(--gold); }
+.n { color: #ffb4a8; }
+.c { color: var(--code-dim); font-style: italic; }
+.p { color: var(--mint); font-weight: 600; }
+.hl { background: rgba(243, 193, 75, 0.18); border-radius: 3px; box-shadow: 0 0 0 2px rgba(243, 193, 75, 0.18); }
+
+/* Sections */
+section { padding-block: 4rem; }
+section.band { background: var(--band); border-block: 2px solid var(--ink); }
+.section-head { display: grid; gap: 0.6rem; margin-bottom: 2rem; }
+.section-head p { font-size: var(--step-1); line-height: 1.45; color: var(--ink-soft); max-width: 40rem; }
+.stack { display: grid; gap: 1.1rem; }
+.cols { display: grid; gap: 2rem; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 52rem) { .cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+
+/* Why: problem list */
+.gaps { list-style: none; padding: 0; margin: 0; display: grid; gap: 0; border-top: 2px solid var(--ink); }
+.gaps li { display: grid; grid-template-columns: 9.5rem minmax(0, 1fr); gap: 1rem; padding-block: 1rem; border-bottom: 1px solid var(--rule); }
+.gaps b { font-family: var(--display); font-size: var(--step-1); line-height: 1.2; }
+.gaps span { color: var(--ink-soft); }
+@media (max-width: 36rem) { .gaps li { grid-template-columns: minmax(0, 1fr); gap: 0.25rem; } }
+
+.uses { display: grid; gap: 1px; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); background: var(--ink); border: 2px solid var(--ink); border-radius: 10px; overflow: hidden; }
+.uses div { background: var(--panel); padding: 1.1rem 1.2rem; display: grid; gap: 0.35rem; align-content: start; }
+.uses p { color: var(--ink-soft); font-size: 0.97rem; }
+
+/* Schema map */
+.legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin-bottom: 1.25rem; font-size: var(--step--1); }
+.legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.tables { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); align-items: start; }
+.tbl { background: var(--panel); border: 2px solid var(--ink); border-radius: 10px; overflow: hidden; }
+.tbl header { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; padding: 0.6rem 0.85rem; background: var(--ink); color: var(--code-fg); }
+.tbl header b { font-family: var(--mono); font-size: 0.92rem; }
+.tbl header small { font-family: var(--pixel); font-size: 0.68rem; letter-spacing: 0.05em; color: var(--gold); white-space: nowrap; }
+.tbl ul { list-style: none; margin: 0; padding: 0.35rem 0; }
+.tbl li { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.2rem 0.85rem; font-family: var(--mono); font-size: 0.82rem; }
+.tbl li.off { color: var(--ruby-ink); font-weight: 600; }
+.tbl.denied { border-style: dashed; border-color: var(--ruby-ink); background: transparent; }
+.tbl.denied header { background: var(--ruby-ink); }
+.tbl.denied header small { color: #ffe1e6; }
+.tbl.denied li { color: var(--ruby-ink); }
+.tbl footer { padding: 0.55rem 0.85rem; border-top: 1px solid var(--rule); font-size: 0.85rem; color: var(--ink-soft); }
+.chip { font-family: var(--pixel); font-size: 0.62rem; letter-spacing: 0.04em; text-transform: uppercase; padding: 0.1rem 0.4rem; border-radius: 4px; white-space: nowrap; text-decoration: none; display: inline-block; }
+.chip.read { background: rgba(16, 40, 43, 0.12); color: var(--ink); }
+.chip.write { background: var(--gold); color: var(--ink); }
+.chip.forced { background: var(--ink); color: var(--gold); }
+.chip.hidden { background: var(--ruby); color: #fff; }
+
+/* Steps */
+.steps { list-style: none; padding: 0; margin: 0; counter-reset: step; display: grid; gap: 1.5rem; }
+.steps > li { counter-increment: step; display: grid; grid-template-columns: 3rem minmax(0, 1fr); gap: 1rem; }
+.steps > li::before { content: counter(step); font-family: var(--pixel); font-size: 1.3rem; width: 2.6rem; height: 2.6rem; display: grid; place-items: center; background: var(--ink); color: var(--gold); border-radius: 6px; }
+.steps h3 { margin-bottom: 0.3rem; }
+.steps p { color: var(--ink-soft); }
+.steps ul { margin: 0.5rem 0 0; padding-left: 1.2rem; color: var(--ink-soft); }
+
+/* Console */
+.console { display: grid; gap: 1.25rem; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 58rem) { .console { grid-template-columns: 17rem minmax(0, 1fr); } }
+.presets { display: grid; gap: 1rem; align-content: start; }
+.presets h3 { font-family: var(--pixel); font-size: 0.75rem; font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 0.35rem; }
+.presets ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.3rem; }
+.preset { width: 100%; text-align: left; background: transparent; border: 1.5px solid var(--ink); border-radius: 7px; padding: 0.45rem 0.7rem; color: var(--ink); font-size: 0.95rem; display: flex; justify-content: space-between; gap: 0.5rem; align-items: center; }
+.preset:hover { background: var(--panel); }
+.preset[aria-pressed="true"] { background: var(--ink); color: var(--code-fg); }
+.preset .dot { width: 0.6rem; height: 0.6rem; border-radius: 2px; flex: none; }
+.dot.ok { background: var(--gold); }
+.dot.no { background: var(--ruby); }
+.screen { background: var(--code-bg); color: var(--code-fg); border: 2px solid var(--ink); border-radius: 12px; overflow: hidden; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
+.screen-bar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem 1rem; padding: 0.7rem 1rem; border-bottom: 1px solid #2a4c4a; font-family: var(--pixel); font-size: 0.72rem; letter-spacing: 0.05em; }
+.screen-bar .who { color: var(--gold); }
+.pane { padding: 0.9rem 1rem; border-bottom: 1px solid #2a4c4a; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.45rem; }
+.pane:last-child { border-bottom: 0; }
+.pane-label { font-family: var(--pixel); font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--code-dim); }
+.pane pre { margin: 0; font: 0.84rem/1.6 var(--mono); white-space: pre-wrap; word-break: break-word; }
+.verdict { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
+.badge { font-family: var(--pixel); font-size: 0.75rem; padding: 0.2rem 0.55rem; border-radius: 4px; }
+.badge.ok { background: var(--gold); color: var(--ink); }
+.badge.no { background: var(--ruby); color: #fff; }
+.verdict .msg { font-family: var(--mono); font-size: 0.85rem; }
+.note { font-size: 0.95rem; color: var(--code-fg); line-height: 1.55; }
+.note em { color: var(--gold); font-style: normal; }
+.rows { overflow-x: auto; }
+.rows table { border-collapse: collapse; font: 0.8rem/1.5 var(--mono); width: 100%; font-variant-numeric: tabular-nums; }
+.rows th { text-align: left; color: var(--code-dim); font-weight: 400; padding: 0.2rem 0.9rem 0.3rem 0; border-bottom: 1px solid #2a4c4a; white-space: nowrap; }
+.rows td { padding: 0.25rem 0.9rem 0.25rem 0; white-space: nowrap; border-bottom: 1px dashed #234341; }
+.rows tr.mine td { color: var(--gold); }
+
+/* Reference tables */
+.ref { overflow-x: auto; border: 2px solid var(--ink); border-radius: 10px; background: var(--panel); }
+.ref table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+.ref th, .ref td { text-align: left; padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.ref tr:last-child td { border-bottom: 0; }
+.ref th { font-family: var(--pixel); font-weight: 400; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; background: var(--ink); color: var(--code-fg); }
+.ref td:first-child { white-space: nowrap; }
+.ref td { color: var(--ink-soft); }
+
+.yesno { display: grid; gap: 1.5rem; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 52rem) { .yesno { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.yesno ul { margin: 0.6rem 0 0; padding-left: 1.1rem; color: var(--ink-soft); display: grid; gap: 0.4rem; }
+.yesno h3 { display: flex; gap: 0.5rem; align-items: center; }
+
+.callout { border-left: 6px solid var(--ruby); background: var(--panel); padding: 1rem 1.2rem; border-radius: 0 10px 10px 0; display: grid; gap: 0.4rem; max-width: 42rem; }
+.callout p { color: var(--ink-soft); }
+
+footer.site { padding-block: 2.5rem 3rem; border-top: 2px solid var(--ink); font-size: var(--step--1); }
+footer.site .wrap { display: flex; flex-wrap: wrap; gap: 0.5rem 2rem; justify-content: space-between; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .screen .pane { animation: rise 220ms ease-out both; }
+  @keyframes rise { from { transform: translateY(4px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="logo" href="#top">sql-policy</a>
+    <nav aria-label="Sections">
+      <ul>
+        <li><a href="#why">Why</a></li>
+        <li><a href="#schema">The game</a></li>
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#console">Examples</a></li>
+        <li><a href="playground.html"><b>Playground ▸</b></a></li>
+        <li><a href="#policy">Policy</a></li>
+        <li><a href="#api">API</a></li>
+        <li><a href="#limits">Limits</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <div class="hero">
+    <div class="wrap">
+      <div>
+        <p class="eyebrow">For SQLite · Cloudflare D1 · node:sqlite</p>
+        <h1>Let players write <span>their own SQL.</span></h1>
+        <p class="lede">sql-policy checks a client's query against a deny-by-default policy and rewrites it so it can only touch the tables, columns and rows you allow. You run the result with any SQLite driver.</p>
+        <div class="hero-meta">
+          <span class="tag">MIT</span>
+          <span class="tag">ESM</span>
+          <span class="tag">1 dependency</span>
+          <span class="tag">runs in Workers, Deno, Bun, browsers</span>
+        </div>
+        <div class="cta">
+          <div class="install"><span id="install-cmd">npm install sql-policy</span><button class="copy" id="copy-install" type="button">Copy</button></div>
+          <a class="play" href="playground.html">Open the playground ▸</a>
+        </div>
+      </div>
+      <div class="flip">
+        <div class="flip-label"><span>What PixelKnight sends</span><span>uid 1</span></div>
+        <pre class="code" data-sql>SELECT g.name, i.quantity
+FROM player_inventory i
+JOIN game_items g ON g.id = i.item_id
+WHERE g.rarity = ?</pre>
+        <div class="flip-arrow">▼ authorize() ▼</div>
+        <div class="flip-label"><span>What your database runs</span><span>params [ 'legendary', 1 ]</span></div>
+        <pre class="code wrapline" data-sql>SELECT `g`.`name`, `i`.`quantity`
+FROM (SELECT `id`, `item_id`, `quantity`, `equipped`
+      FROM `player_inventory` WHERE (`user_id` = ?2)) AS `i`
+INNER JOIN (SELECT `id`, `name`, `description`, `rarity`, `icon_url`
+      FROM `game_items`) AS `g` ON `g`.`id` = `i`.`item_id`
+WHERE `g`.`rarity` = ?1 LIMIT 5000</pre>
+      </div>
+    </div>
+  </div>
+
+  <section id="what" class="band">
+    <div class="wrap cols">
+      <div class="stack prose">
+        <p class="eyebrow">What it is</p>
+        <h2>A gatekeeper between the client and your database.</h2>
+        <p>sql-policy is a small JavaScript library. It parses one SQL statement, checks every part of it against an allowlist, and generates new SQL from the checked syntax tree. The client's text is never executed.</p>
+        <p>You describe what each kind of client may do in a single policy object: which tables exist for them, which columns they can see, which rows they can reach, and whether they can insert, update or delete. Anything not in the policy does not exist.</p>
+      </div>
+      <div class="stack">
+        <p class="eyebrow">What it's used for</p>
+        <div class="uses">
+          <div><h3>Game clients</h3><p>Let the client query its own inventory, stats and leaderboards without a new endpoint for every screen.</p></div>
+          <div><h3>Backend as a service</h3><p>Give apps on D1 or SQLite a flexible query API with per-user rules, the way Postgres row-level security works.</p></div>
+          <div><h3>Admin tools</h3><p>Same database, a different <code>ctx</code>. Moderators see more columns and get delete rights.</p></div>
+          <div><h3>Reports and prototypes</h3><p>Let analysts and designers run ad-hoc queries on live data without exposing secrets.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="why">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Why it was built</p>
+        <h2>SQLite has no users, no GRANT and no row-level security.</h2>
+        <p>Frontends want to ask the database flexible questions. The usual options all have a gap.</p>
+      </div>
+      <ul class="gaps">
+        <li><b>One endpoint per query</b><span>Safe, but every new screen in the game waits for a backend change. The API ends up as a long list of near-duplicate handlers.</span></li>
+        <li><b>Raw SQL from the client</b><span>Fast to build and impossible to secure. One <code>SELECT password_hash FROM users</code> and it's over.</span></li>
+        <li><b>Views</b><span>Views like <code>public_users</code> hide columns, but they can't depend on who is asking, so "only my own inventory" is out of reach. They don't guard writes. And nothing stops the client from skipping the view and reading <code>users</code> directly.</span></li>
+        <li><b>Postgres RLS</b><span>Solves this inside the database, but SQLite, D1 and sqlite-wasm don't have it.</span></li>
+      </ul>
+      <p class="prose" style="margin-top:1.5rem;color:var(--ink-soft)">sql-policy covers the gap. You write the rules once, in JavaScript, next to your other server code. The client keeps the flexibility of SQL, and the database only ever sees statements the policy has rewritten.</p>
+    </div>
+  </section>
+
+  <section id="schema" class="band">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">The example used on this page</p>
+        <h2>A small game backend.</h2>
+        <p>Six tables: players, their login sessions, a season leaderboard, an item catalogue, each player's inventory and server config. Here is what a signed-in player can reach.</p>
+      </div>
+      <div class="legend">
+        <span><i class="chip read">read</i> visible</span>
+        <span><i class="chip write">write</i> visible and writable</span>
+        <span><i class="chip forced">forced</i> set by the server on insert</span>
+        <span><i class="chip hidden">hidden</i> exists, but not for the client</span>
+      </div>
+      <div class="tables">
+        <article class="tbl">
+          <header><b>users</b><small>SELECT</small></header>
+          <ul>
+            <li>id <i class="chip read">read</i></li>
+            <li>username <i class="chip read">read</i></li>
+            <li>avatar_url <i class="chip read">read</i></li>
+            <li>created_at <i class="chip read">read</i></li>
+            <li class="off">email <i class="chip hidden">hidden</i></li>
+            <li class="off">password_hash <i class="chip hidden">hidden</i></li>
+          </ul>
+          <footer>Public profile. Credentials stay invisible everywhere, including WHERE and ORDER BY.</footer>
+        </article>
+        <article class="tbl">
+          <header><b>player_inventory</b><small>SELECT INSERT UPDATE DELETE</small></header>
+          <ul>
+            <li>id <i class="chip read">read</i></li>
+            <li>item_id <i class="chip write">insert</i></li>
+            <li>quantity <i class="chip write">insert, update</i></li>
+            <li>equipped <i class="chip write">update</i></li>
+            <li class="off">user_id <i class="chip forced">forced</i></li>
+          </ul>
+          <footer>Row filter <code>user_id = ctx.uid</code>. Players see and change only their own items.</footer>
+        </article>
+        <article class="tbl">
+          <header><b>leaderboard</b><small>SELECT</small></header>
+          <ul>
+            <li>user_id <i class="chip read">read</i></li>
+            <li>username <i class="chip read">read</i></li>
+            <li>score <i class="chip read">read</i></li>
+            <li>rank <i class="chip read">read</i></li>
+            <li>season_id <i class="chip read">read</i></li>
+          </ul>
+          <footer>Read-only. Scores are written by the game server, never by clients.</footer>
+        </article>
+        <article class="tbl">
+          <header><b>game_items</b><small>SELECT</small></header>
+          <ul>
+            <li>id <i class="chip read">read</i></li>
+            <li>name <i class="chip read">read</i></li>
+            <li>description <i class="chip read">read</i></li>
+            <li>rarity <i class="chip read">read</i></li>
+            <li>icon_url <i class="chip read">read</i></li>
+          </ul>
+          <footer>The public catalogue: Iron Sword (common), Dragon Gem (legendary).</footer>
+        </article>
+        <article class="tbl">
+          <header><b>game_config</b><small>SELECT</small></header>
+          <ul>
+            <li>key <i class="chip read">read</i></li>
+            <li>display_value <i class="chip read">read</i></li>
+            <li class="off">internal_value <i class="chip hidden">hidden</i></li>
+            <li class="off">environment <i class="chip hidden">hidden</i></li>
+          </ul>
+          <footer>Clients get <code>maintenance_mode = 'false'</code>, never the internal flag behind it.</footer>
+        </article>
+        <article class="tbl denied">
+          <header><b>auth_sessions</b><small>NOT IN POLICY</small></header>
+          <ul>
+            <li>id</li>
+            <li>user_id</li>
+            <li>token_hash</li>
+            <li>expires_at</li>
+            <li>revoked</li>
+          </ul>
+          <footer>Not listed, so it doesn't exist for clients. Not even a CTE or alias named <code>auth_sessions</code> can reach it.</footer>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap cols">
+      <div class="stack">
+        <div class="section-head" style="margin-bottom:0.5rem">
+          <p class="eyebrow">How it works</p>
+          <h2>Parse, check, rewrite, generate.</h2>
+        </div>
+        <ol class="steps">
+          <li><div><h3>Parse</h3><p>The statement is parsed into a syntax tree with <a href="https://github.com/taozhi8833998/node-sql-parser">node-sql-parser</a>. Exactly one statement is accepted.</p></div></li>
+          <li><div><h3>Check against the allowlist</h3><p>Every node type, clause and function must be known and allowed. Anything unknown is rejected, so new SQL features are denied until someone decides otherwise.</p></div></li>
+          <li><div><h3>Replace every table with a subquery</h3><p><code>users</code> becomes <code>(SELECT id, username, avatar_url, created_at FROM users) AS users</code>. This one rewrite means:</p>
+            <ul>
+              <li><code>SELECT *</code> returns exactly the visible columns.</li>
+              <li>A hidden column can't be used in WHERE, ON, ORDER BY, GROUP BY, CASE or a subquery. SQLite answers "no such column", so nothing leaks through filtering or sorting.</li>
+              <li>The row filter holds in JOINs, subqueries, aggregates and UNION.</li>
+            </ul></div></li>
+          <li><div><h3>Guard writes</h3><p>INSERT and UPDATE are checked column by column. Forced values like <code>user_id</code> are added. The row filter is ANDed into the WHERE of UPDATE and DELETE.</p></div></li>
+          <li><div><h3>Generate fresh SQL</h3><p>The SQL you run is generated from the checked tree, with numbered parameters: the client's first, then the policy's. Names are quoted with backticks, which SQLite never reads as strings, so a hidden column is an error in every SQLite build.</p></div></li>
+        </ol>
+      </div>
+      <div class="stack" style="align-content:start">
+        <p class="eyebrow">Example: the row filter can't be escaped</p>
+        <pre class="code" data-sql>-- client
+SELECT id, quantity FROM player_inventory
+WHERE id = 3 OR 1 = 1</pre>
+        <pre class="code wrapline" data-sql>-- executed
+SELECT `id`, `quantity`
+FROM (SELECT `id`, `item_id`, `quantity`, `equipped`
+      FROM `player_inventory`
+      WHERE (`user_id` = ?1)) AS `player_inventory`
+WHERE `id` = 3 OR 1 = 1 LIMIT 100</pre>
+        <p style="color:var(--ink-soft)">The <code>OR 1 = 1</code> only widens the outer query. The subquery has already narrowed the table to the player's own rows, so row 3, which belongs to StarFox, is never there to find.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="console" class="band">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Examples</p>
+        <h2>Sixteen queries, and what happened to them.</h2>
+        <p>Each one was run through <code>authorize</code> and <code>verify</code>, and the allowed ones were executed against the seed data. To write your own queries, change the ctx and edit the database, open the <a href="playground.html">playground</a>.</p>
+      </div>
+      <div class="console">
+        <div class="presets" id="presets"></div>
+        <div class="screen" id="screen" aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="policy">
+    <div class="wrap cols">
+      <div class="stack">
+        <div class="section-head" style="margin-bottom:0.5rem">
+          <p class="eyebrow">Writing the policy</p>
+          <h2>One object, deny by default.</h2>
+        </div>
+        <pre class="code" data-js>import { createPolicy } from 'sql-policy'
+
+export const policy = createPolicy({
+  maxRows: 100,
+  tables: {
+    users: {
+      columns: ['id', 'username', 'avatar_url', 'created_at'],
+      select: true
+    },
+    leaderboard: {
+      columns: ['user_id', 'username', 'score', 'rank', 'season_id'],
+      select: true
+    },
+    game_items: {
+      columns: ['id', 'name', 'description', 'rarity', 'icon_url'],
+      select: true
+    },
+    game_config: {
+      columns: ['key', 'display_value'],
+      select: true
+    },
+    player_inventory: {
+      columns: ['id', 'item_id', 'quantity', 'equipped'],
+      select: { where: ctx => ['user_id = ?', ctx.uid] },
+      insert: {
+        columns: ['item_id', 'quantity'],
+        set: ctx => ({ user_id: ctx.uid })
+      },
+      update: { columns: ['quantity', 'equipped'] },
+      delete: true
+    }
+    // auth_sessions: not listed, so it doesn't exist
+  }
+})</pre>
+      </div>
+      <div class="stack" style="align-content:start">
+        <p class="eyebrow">Using it in a Worker</p>
+        <pre class="code" data-js>import { PolicyError } from 'sql-policy'
+
+export default {
+  async fetch (request, env) {
+    const player = await signedInPlayer(request, env)
+    const { sql, params } = await request.json()
+
+    try {
+      const q = policy.authorize(sql, params, { uid: player.id })
+      const { results } = await env.DB.prepare(q.sql)
+        .bind(...q.params).all()
+      return Response.json(results)
+    } catch (err) {
+      if (err instanceof PolicyError) {
+        return Response.json({ error: err.code }, { status: 403 })
+      }
+      throw err
+    }
+  }
+}</pre>
+        <div class="ref">
+          <table>
+            <thead><tr><th>Key</th><th>Value</th></tr></thead>
+            <tbody>
+              <tr><td><code>columns</code></td><td><b>Required.</b> Columns the client can see. Every other column is invisible.</td></tr>
+              <tr><td><code>select</code></td><td><code>true</code>, <code>ctx =&gt; boolean</code> or <code>{ allow?, where? }</code></td></tr>
+              <tr><td><code>insert</code></td><td><code>true</code>, <code>ctx =&gt; boolean</code> or <code>{ allow?, columns?, set? }</code></td></tr>
+              <tr><td><code>update</code></td><td><code>true</code>, <code>ctx =&gt; boolean</code> or <code>{ allow?, columns?, set?, where? }</code></td></tr>
+              <tr><td><code>delete</code></td><td><code>true</code>, <code>ctx =&gt; boolean</code> or <code>{ allow?, where? }</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <ul class="prose" style="padding-left:1.1rem;margin:0;display:grid;gap:0.45rem">
+          <li><code>where(ctx)</code> is a trusted row filter: a string, <code>['user_id = ?', ctx.uid]</code>, <code>true</code> for every row or <code>false</code> for none. It may use hidden columns.</li>
+          <li><code>set(ctx)</code> returns values that are always written and replace whatever the client sent.</li>
+          <li>UPDATE and DELETE inherit the SELECT row filter unless they have their own <code>where</code>. A player can't change rows they can't see.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="api" class="band">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">API</p>
+        <h2>Three functions and an error.</h2>
+      </div>
+      <div class="cols">
+        <div class="stack prose">
+          <h3><code>policy.authorize(sql, params?, ctx?)</code></h3>
+          <p>Returns <code>{ sql, params, kind, tables, access }</code> or throws a <code>PolicyError</code>. <code>kind</code> is <code>'select'</code>, <code>'insert'</code>, <code>'update'</code> or <code>'delete'</code>. <code>access</code> lists, per table, the columns the statement may read, insert and update, and is used by <code>verify</code>.</p>
+          <p>Clients use plain <code>?</code> parameters. <code>?NNN</code>, <code>:name</code>, <code>@name</code> and <code>$name</code> are rejected.</p>
+          <h3 style="margin-top:0.75rem"><code>policy.schema(ctx?)</code></h3>
+          <p>What a client with this <code>ctx</code> may do. Send it to the game client so it knows which tables and columns exist, or use it to create a matching local database.</p>
+          <pre class="code" data-js>policy.schema({ uid: 1 }).player_inventory
+// { columns: ['id', 'item_id', 'quantity', 'equipped'],
+//   operations: ['select', 'insert', 'update', 'delete'] }</pre>
+          <h3 style="margin-top:0.75rem"><code>createVerifier(schemaSql)</code></h3>
+          <p>An optional second opinion from SQLite itself, from <code>sql-policy/verify</code>. It prepares the rewritten statement against an empty copy of your schema, with SQLite's authorizer reporting every table, column and function it touches. Anything outside <code>result.access</code> fails. This guards against the parser and SQLite reading the same SQL differently. Requires <code>node:sqlite</code> (Node 22.5+).</p>
+          <pre class="code" data-js>import { createVerifier } from 'sql-policy/verify'
+
+const verify = createVerifier(schemaSql)
+verify(policy.authorize(sql, params, ctx)) // throws VERIFY_FAILED</pre>
+        </div>
+        <div class="stack" style="align-content:start">
+          <h3><code>PolicyError</code> codes</h3>
+          <div class="ref">
+            <table>
+              <thead><tr><th>Code</th><th>Meaning</th></tr></thead>
+              <tbody>
+                <tr><td><code>SYNTAX</code></td><td>The SQL could not be parsed</td></tr>
+                <tr><td><code>UNSUPPORTED</code></td><td>Valid SQL that is not allowed: PRAGMA, ATTACH, schema prefixes, several statements, …</td></tr>
+                <tr><td><code>TOO_LONG</code></td><td>Longer than <code>maxLength</code></td></tr>
+                <tr><td><code>PARAMS</code></td><td>The number of <code>?</code> does not match <code>params</code></td></tr>
+                <tr><td><code>TABLE_DENIED</code></td><td>The table is not in the policy</td></tr>
+                <tr><td><code>COLUMN_DENIED</code></td><td>A write uses a column that is not allowed</td></tr>
+                <tr><td><code>OPERATION_DENIED</code></td><td>The operation is not allowed on that table for this <code>ctx</code></td></tr>
+                <tr><td><code>FUNCTION_DENIED</code></td><td>The function is not in <code>functions</code></td></tr>
+                <tr><td><code>VERIFY_FAILED</code></td><td><code>verify</code> found access outside the policy</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p style="color:var(--ink-soft)"><code>error.details</code> names the table, column, operation or function involved. Reading a hidden column in a SELECT isn't caught by <code>authorize</code>: the rewritten SQL fails in SQLite with "no such column" instead, and <code>verify</code> reports it before it reaches the database.</p>
+          <h3 style="margin-top:0.5rem">Options</h3>
+          <pre class="code" data-js>createPolicy({
+  tables: { /* … */ },
+  functions: [...], // SQL functions clients may call
+  maxRows: 5000,    // cap on LIMIT for SELECT
+  maxLength: 100000 // longest SQL accepted
+})</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="limits">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Limits</p>
+        <h2>What it covers, and what it leaves to you.</h2>
+      </div>
+      <div class="yesno">
+        <div>
+          <h3><span class="badge ok">OK</span> Supported</h3>
+          <ul>
+            <li><b>SELECT</b> with JOIN (inner, left, cross, USING), subqueries anywhere, non-recursive CTEs, UNION / INTERSECT / EXCEPT, GROUP BY, HAVING, ORDER BY, LIMIT/OFFSET, DISTINCT, CASE, CAST, window functions with <code>PARTITION BY</code>, JSON operators.</li>
+            <li><b>INSERT INTO t (cols) VALUES (…), (…)</b> with literals or parameters.</li>
+            <li><b>UPDATE t SET col = value WHERE …</b> with literals or parameters. WHERE may use visible columns and allowed functions, but no subqueries.</li>
+            <li><b>DELETE FROM t WHERE …</b> with the same rules as UPDATE.</li>
+          </ul>
+        </div>
+        <div>
+          <h3><span class="badge no">NO</span> Rejected</h3>
+          <ul>
+            <li>PRAGMA, ATTACH, DDL, transactions, <code>REPLACE</code>, <code>INSERT OR …</code>, <code>ON CONFLICT</code>, <code>RETURNING</code>, <code>INSERT … SELECT</code>, <code>UPDATE … FROM</code>.</li>
+            <li>Schema-qualified names (<code>main.users</code>), table-valued functions (<code>json_each</code>, <code>pragma_*</code>), recursive CTEs.</li>
+            <li>Named or numbered parameters.</li>
+            <li>Parser gaps: <code>[bracketed]</code> identifiers, <code>NULLS FIRST/LAST</code>, <code>OVER (ORDER BY …)</code> without <code>PARTITION BY</code>, named <code>WINDOW</code>, <code>ESCAPE</code>, <code>MATCH</code>, <code>INDEXED BY</code>.</li>
+            <li>Views can be denied, but not yet listed in a policy that uses <code>verify</code>: SQLite reports reads of the table behind the view.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="stack" style="margin-top:2.5rem">
+        <h3>Security model</h3>
+        <p class="prose" style="color:var(--ink-soft)">sql-policy protects tables, columns, rows and operations that are not in the policy. That holds for any SQL that parses, including subqueries, CTEs that shadow table names, aliases, comments, quoting tricks and <code>OR 1=1</code>. It does not protect against:</p>
+        <div class="cols" style="gap:1rem">
+          <div class="callout"><b>Game rules</b><p>The policy decides which columns a player may write, not which values. Nothing in it stops <code>quantity = 99</code> on a Dragon Gem. Keep rules like that on the server, or don't make the column writable.</p></div>
+          <div class="callout"><b>Expensive queries</b><p>Large cross joins can still be slow. Use <code>maxRows</code>, <code>maxLength</code>, database timeouts and rate limiting.</p></div>
+          <div class="callout"><b>Your own filters</b><p><code>where</code> and <code>set</code> are trusted SQL. Never build them from client input other than through <code>?</code> parameters.</p></div>
+          <div class="callout"><b>Inference</b><p>If a column is visible, clients can filter and aggregate on it. With update or delete but no select, a client can still learn from the number of changed rows.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>sql-policy 0.1.0 · MIT · Jimmy Wärting</span>
+    <span>Node 22.5+ for <code>sql-policy/verify</code>. The main export runs anywhere.</span>
+  </div>
+</footer>
+
+<script src="examples.js"></script>
+<script>
+
+const NOTES = {
+  inventory: 'PixelKnight (uid 1) only gets their own two stacks. The join to <em>game_items</em> works as usual.',
+  inventory2: 'Identical SQL from StarFox (uid 2). Only the bound <em>user_id</em> changed, so the result changed.',
+  top: 'Two public tables joined. The client parameter comes first as ?1.',
+  star: '<em>email</em> and <em>password_hash</em> are not in the result, because they are not in the subquery.',
+  hash: 'The hidden column does not exist inside the rewritten subquery. SQLite says "no such column", and verify catches it before anything runs.',
+  sort: 'Filtering on a hidden column would leak it one letter at a time. It fails the same way as reading it.',
+  sessions: 'Not in the policy, so it does not exist.',
+  or: 'The OR only widens the outer query. StarFox\'s row 3 was never in the subquery.',
+  schema: 'SQLite\'s internal tables are tables like any other. Not listed, not reachable.',
+  stack: 'Exactly one statement per call.',
+  blob: 'Only functions in the allowlist can be called.',
+  loot: '<em>user_id</em> is added by the server from ctx. Note that the policy does not limit the value of <em>quantity</em>: that is a game rule for your server.',
+  gift: '<em>user_id</em> is forced by the server and not writable by the client.',
+  equip: 'No WHERE from the client, yet only the player\'s own 2 rows changed. StarFox\'s item is untouched.',
+  cheat: '<em>leaderboard</em> allows SELECT only.',
+  drop: 'The client\'s WHERE is ANDed with the row filter. Every item has quantity > 0, but only PixelKnight\'s are deleted.'
+}
+
+const GROUPS = [['read', 'Reads'], ['write', 'Writes'], ['attack', 'Attempts']]
+const KEYWORDS = /\b(SELECT|FROM|WHERE|JOIN|INNER|LEFT|ON|AS|AND|OR|ORDER|BY|ASC|DESC|LIMIT|INSERT|INTO|VALUES|UPDATE|SET|DELETE|DROP|TABLE|LIKE|GROUP|HAVING|UNION|WITH|NOT|NULL|IS|IN|EXISTS)\b/g
+
+function escapeHtml (s) {
+  return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+}
+
+/** Tiny SQL highlighter: comments, strings, parameters, numbers, keywords */
+function highlightSql (src) {
+  return src.split(/(--[^\n]*|'(?:[^']|'')*'|\?\d*)/g).map((part, i) => {
+    if (i % 2) {
+      if (part.startsWith('--')) return `<span class="c">${escapeHtml(part)}</span>`
+      if (part.startsWith("'")) return `<span class="s">${escapeHtml(part)}</span>`
+      return `<span class="p">${escapeHtml(part)}</span>`
+    }
+    return escapeHtml(part)
+      .replace(/\b(\d+)\b/g, '<span class="n">$1</span>')
+      .replace(KEYWORDS, '<span class="k">$1</span>')
+  }).join('')
+}
+
+function highlightJs (src) {
+  return src.split(/(\/\/[^\n]*|\/\*[\s\S]*?\*\/|'(?:[^'\\]|\\.)*')/g).map((part, i) => {
+    if (i % 2) {
+      if (part.startsWith('/')) return `<span class="c">${escapeHtml(part)}</span>`
+      return `<span class="s">${escapeHtml(part)}</span>`
+    }
+    return escapeHtml(part)
+      .replace(/\b(import|export|from|const|await|async|return|if|throw|try|catch|instanceof|default|new)\b/g, '<span class="k">$1</span>')
+      .replace(/\b(true|false|\d+)\b/g, '<span class="n">$1</span>')
+  }).join('')
+}
+
+document.querySelectorAll('[data-sql]').forEach(el => { el.innerHTML = highlightSql(el.textContent) })
+document.querySelectorAll('[data-js]').forEach(el => { el.innerHTML = highlightJs(el.textContent) })
+
+/** Line breaks before the main clauses so long rewritten SQL reads well */
+function formatSql (sql) {
+  return sql
+    .replace(/ (FROM \(SELECT|INNER JOIN|LEFT JOIN|WHERE `|ORDER BY|LIMIT|VALUES|SET) /g, '\n$1 ')
+    .replace(/\n(FROM \(SELECT)/g, '\n$1')
+}
+
+function rowsTable (rows, mark) {
+  if (!rows.length) return '<p class="note">No rows.</p>'
+  const cols = Object.keys(rows[0])
+  const head = cols.map(c => `<th>${escapeHtml(c)}</th>`).join('')
+  const body = rows.map(r => `<tr class="${mark ? mark(r) : ''}">${cols.map(c => `<td>${escapeHtml(r[c] ?? 'NULL')}</td>`).join('')}</tr>`).join('')
+  return `<div class="rows"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`
+}
+
+const presets = document.getElementById('presets')
+const screen = document.getElementById('screen')
+
+const EXAMPLES = window.EXAMPLES
+
+function show (id) {
+  const e = EXAMPLES.find(x => x.id === id)
+  presets.querySelectorAll('.preset').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === id)))
+  const player = e.uid === 1 ? 'PixelKnight' : 'StarFox'
+  let out = `<div class="screen-bar"><span>${escapeHtml(e.title)}</span><span class="who">ctx { uid: ${e.uid} } · ${player}</span></div>`
+  out += `<div class="pane"><span class="pane-label">Client sends${e.params.length ? ' · params ' + escapeHtml(JSON.stringify(e.params)) : ''}</span><pre>${highlightSql(e.sql)}</pre></div>`
+  if (e.error) {
+    out += `<div class="pane"><div class="verdict"><span class="badge no">${escapeHtml(e.error.code)}</span><span class="msg">${escapeHtml(e.error.message)}</span></div><p class="note">${NOTES[e.id] ?? ''}</p></div>`
+  } else {
+    out += `<div class="pane"><span class="pane-label">Database runs · params ${escapeHtml(JSON.stringify(e.boundParams))}</span><pre>${highlightSql(formatSql(e.rewritten))}</pre></div>`
+    if (e.rows) {
+      out += `<div class="pane"><div class="verdict"><span class="badge ok">${e.rows.length} ROW${e.rows.length === 1 ? '' : 'S'}</span></div>${rowsTable(e.rows)}<p class="note">${NOTES[e.id] ?? ''}</p></div>`
+    } else {
+      out += `<div class="pane"><div class="verdict"><span class="badge ok">${e.changes} CHANGED</span><span class="msg">player_inventory afterwards</span></div>${rowsTable(e.after, r => r.user_id === e.uid ? 'mine' : '')}<p class="note">${NOTES[e.id] ?? ''}</p></div>`
+    }
+  }
+  screen.innerHTML = out
+}
+
+for (const [group, label] of GROUPS) {
+  const items = EXAMPLES.filter(e => e.group === group)
+  const wrap = document.createElement('div')
+  wrap.innerHTML = `<h3>${label}</h3><ul>${items.map(e => `<li><button type="button" class="preset" data-id="${e.id}" aria-pressed="false"><span>${escapeHtml(e.title)}</span><i class="dot ${e.error ? 'no' : 'ok'}" aria-label="${e.error ? 'denied' : 'allowed'}"></i></button></li>`).join('')}</ul>`
+  presets.append(wrap)
+}
+presets.addEventListener('click', ev => {
+  const btn = ev.target.closest('.preset')
+  if (btn) show(btn.dataset.id)
+})
+show('inventory')
+
+document.getElementById('copy-install').addEventListener('click', async ev => {
+  const text = document.getElementById('install-cmd').textContent
+  try {
+    await navigator.clipboard.writeText(text)
+    ev.target.textContent = 'Copied'
+  } catch {
+    const range = document.createRange()
+    range.selectNodeContents(document.getElementById('install-cmd'))
+    getSelection().removeAllRanges()
+    getSelection().addRange(range)
+  }
+})
+</script>
+</body>
+</html>

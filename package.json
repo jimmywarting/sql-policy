@@ -1,0 +1,33 @@
+{
+  "name": "sql-policy",
+  "version": "0.1.0",
+  "description": "Let clients send their own SQL. Validates and rewrites it against a deny-by-default table, column and row policy.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./verify": "./src/verify.js"
+  },
+  "files": [
+    "src"
+  ],
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "test": "node --test",
+    "docs": "node scripts/build-docs.js"
+  },
+  "keywords": [
+    "sql",
+    "sqlite",
+    "policy",
+    "row-level-security",
+    "authorization",
+    "baas"
+  ],
+  "author": "Jimmy Wärting",
+  "license": "MIT",
+  "dependencies": {
+    "node-sql-parser": "^5.4.0"
+  }
+}
