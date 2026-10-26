@@ -1,6 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { DatabaseSync } from 'node:sqlite'
 import { createPolicy } from '../src/index.js'
+import { createVerifier } from '../src/verify.js'
 
 test('an empty policy denies everything', () => {
   const policy = createPolicy({ tables: {} })
@@ -53,4 +55,42 @@ test('invalid configuration throws early', () => {
 test('a bad policy filter is reported', () => {
   const policy = createPolicy({ tables: { t: { columns: ['a'], select: { where: () => 'a = = 1' } } } })
   assert.throws(() => policy.authorize('SELECT * FROM t'), { code: 'SYNTAX', message: /policy filter/ })
+})
+
+test("columns: '*' allows every column of the table", () => {
+  const policy = createPolicy({
+    tables: {
+      t: {
+        columns: '*',
+        select: { where: () => 'a > 0' },
+        insert: true,
+        update: { columns: ['b'] },
+        delete: true
+      }
+    }
+  })
+  const db = new DatabaseSync(':memory:')
+  db.exec('CREATE TABLE t (a INTEGER, b TEXT, c TEXT); INSERT INTO t VALUES (0, \'x\', \'y\'), (1, \'z\', \'w\')')
+  const verify = createVerifier('CREATE TABLE t (a INTEGER, b TEXT, c TEXT)')
+  const run = (sql, params) => {
+    const result = policy.authorize(sql, params)
+    verify(result)
+    return result
+  }
+
+  const select = run('SELECT * FROM t')
+  assert.equal(select.sql, 'SELECT * FROM (SELECT * FROM `t` WHERE (`a` > 0)) AS `t`')
+  assert.ok(select.access.t.read.includes('*'))
+  assert.deepEqual(db.prepare(select.sql).all().map(r => ({ ...r })), [{ a: 1, b: 'z', c: 'w' }])
+
+  run('INSERT INTO t (a, b, c) VALUES (?, ?, ?)', [2, 'b', 'c'])
+  run("UPDATE t SET b = 'q' WHERE c = 'w'")
+  assert.throws(() => policy.authorize("UPDATE t SET c = 'q'"), { code: 'COLUMN_DENIED' })
+  run("DELETE FROM t WHERE c = 'w'")
+  assert.deepEqual(policy.schema(), { t: { columns: '*', operations: ['select', 'insert', 'update', 'delete'] } })
+})
+
+test("'*' in insert/update columns needs columns: '*'", () => {
+  assert.throws(() => createPolicy({ tables: { t: { columns: ['a'], insert: { columns: '*' } } } }), /cannot be '\*'/)
+  assert.ok(createPolicy({ tables: { t: { columns: '*', insert: { columns: '*' } } } }))
 })

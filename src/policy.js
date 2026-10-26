@@ -11,12 +11,14 @@ import { authorize } from './rewrite.js'
  * @typedef {(ctx: any) => boolean} AllowFn
  *
  * @typedef {boolean | AllowFn | { allow?: AllowFn, where?: WhereFn }} SelectRule
- * @typedef {boolean | AllowFn | { allow?: AllowFn, columns?: string[], set?: (ctx: any) => Record<string, unknown> }} InsertRule
- * @typedef {boolean | AllowFn | { allow?: AllowFn, columns?: string[], set?: (ctx: any) => Record<string, unknown>, where?: WhereFn }} UpdateRule
+ * @typedef {string[] | '*'} Columns Column names, or `'*'` for every column of the table
+ *
+ * @typedef {boolean | AllowFn | { allow?: AllowFn, columns?: Columns, set?: (ctx: any) => Record<string, unknown> }} InsertRule
+ * @typedef {boolean | AllowFn | { allow?: AllowFn, columns?: Columns, set?: (ctx: any) => Record<string, unknown>, where?: WhereFn }} UpdateRule
  * @typedef {boolean | AllowFn | { allow?: AllowFn, where?: WhereFn }} DeleteRule
  *
  * @typedef {object} TablePolicy
- * @property {string[]} columns Columns that exist for clients. Everything else is invisible.
+ * @property {Columns} columns Columns that exist for clients. Everything else is invisible.
  * @property {SelectRule} [select]
  * @property {InsertRule} [insert]
  * @property {UpdateRule} [update]
@@ -46,6 +48,7 @@ const DEFAULT_FUNCTIONS = [
 
 const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/
 const OPERATIONS = ['select', 'insert', 'update', 'delete']
+const ALL = '*'
 
 /**
  * @param {unknown} rule
@@ -63,9 +66,13 @@ function normalizeRule (rule) {
  * @param {string} table
  * @param {string} label
  * @param {unknown} columns
- * @param {Set<string>} [within]
+ * @param {Set<string> | null} [within] null when the table allows every column
  */
 function checkColumns (table, label, columns, within) {
+  if (columns === ALL) {
+    if (within) throw new TypeError(`${table}.${label} cannot be '*' when ${table}.columns is a list`)
+    return
+  }
   if (!Array.isArray(columns) || !columns.length) {
     throw new TypeError(`${table}.${label} must be a non-empty array of column names`)
   }
@@ -86,14 +93,17 @@ function checkColumns (table, label, columns, within) {
 function normalizeTable (name, spec) {
   if (!IDENTIFIER.test(name)) throw new TypeError(`Invalid table name ${name}`)
   checkColumns(name, 'columns', spec?.columns)
-  const columns = [...spec.columns]
-  const known = new Set(columns.map(c => c.toLowerCase()))
+  // With '*' every column is visible, so `columns` and `known` are left as
+  // '*' and null, and the rewrite selects `*` from the table
+  const columns = spec.columns === ALL ? ALL : [...spec.columns]
+  const known = columns === ALL ? null : new Set(columns.map(c => c.toLowerCase()))
   const table = { name, columns, known }
   for (const op of OPERATIONS) {
     const rule = normalizeRule(spec[op])
     if (rule && (op === 'insert' || op === 'update')) {
       if (rule.columns) checkColumns(name, `${op}.columns`, rule.columns, known)
-      rule.columns = [...(rule.columns ?? columns)]
+      const allowed = rule.columns ?? columns
+      rule.columns = allowed === ALL ? null : new Set(allowed.map(c => c.toLowerCase()))
     }
     table[op] = rule
   }
@@ -141,15 +151,16 @@ function createPolicy (options) {
 
     /**
      * What a client with this ctx may do, table by table. Useful for docs and
-     * for creating a matching local database.
+     * for creating a matching local database. `columns` is `'*'` for tables
+     * that allow every column.
      * @param {any} [ctx]
      */
     schema (ctx = {}) {
-      /** @type {Record<string, { columns: string[], operations: string[] }>} */
+      /** @type {Record<string, { columns: Columns, operations: string[] }>} */
       const out = {}
       for (const table of byName.values()) {
         const operations = OPERATIONS.filter(op => table[op] && (!table[op].allow || table[op].allow(ctx)))
-        if (operations.length) out[table.name] = { columns: [...table.columns], operations }
+        if (operations.length) out[table.name] = { columns: table.columns === ALL ? ALL : [...table.columns], operations }
       }
       return out
     }

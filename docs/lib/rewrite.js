@@ -29,7 +29,7 @@ const POLICY_PARAM = new RegExp(`^${RESERVED}q(\\d+)$`)
  *
  * @typedef {object} Scope
  * @property {Set<string>} ctes Lower-cased CTE names visible here
- * @property {null | { table: any, columns: Set<string> }} write Set while checking an UPDATE/DELETE WHERE
+ * @property {null | { table: any, columns: Set<string> | null }} write Set while checking an UPDATE/DELETE WHERE. `columns` is null when every column is allowed
  */
 
 /**
@@ -50,6 +50,18 @@ function accessFor (st, name) {
   }
   return entry
 }
+
+/**
+ * @param {Set<string> | null} allowed null means every column
+ * @param {string} column
+ */
+const allows = (allowed, column) => allowed === null || allowed.has(column.toLowerCase())
+
+/**
+ * Columns of a table that a read may reach. `'*'` stands for every column.
+ * @param {any} table
+ */
+const readable = table => table.known ?? ['*']
 
 /**
  * @param {State} st
@@ -159,7 +171,7 @@ function wrapTable (st, name, alias) {
   const table = lookupTable(st, name)
   ruleFor(st, table, 'select')
   const read = accessFor(st, table.name).read
-  for (const column of table.columns) read.add(column.toLowerCase())
+  for (const column of readable(table)) read.add(column.toLowerCase())
   return {
     expr: {
       ast: {
@@ -167,7 +179,9 @@ function wrapTable (st, name, alias) {
         with: null,
         options: null,
         distinct: null,
-        columns: table.columns.map(column => ({ expr: { type: 'column_ref', table: null, column }, as: null })),
+        columns: table.known
+          ? table.columns.map(column => ({ expr: { type: 'column_ref', table: null, column }, as: null }))
+          : [{ expr: { type: 'column_ref', table: null, column: '*' }, as: null }],
         from: [{ db: null, table: table.name, as: null }],
         where: rowFilter(st, table, 'select'),
         groupby: null,
@@ -241,7 +255,7 @@ function expr (st, node, scope) {
         if (node.table && node.table.toLowerCase() !== table.name.toLowerCase()) {
           throw new PolicyError('TABLE_DENIED', `Unknown table ${node.table}`, { table: node.table })
         }
-        if (!columns.has(name.toLowerCase())) {
+        if (!allows(columns, name)) {
           throw new PolicyError('COLUMN_DENIED', `Column ${name} is not allowed`, { table: table.name, column: name })
         }
       }
@@ -440,12 +454,11 @@ function insert (st, ast) {
   if (!Array.isArray(ast.columns) || !ast.columns.length) throw unsupported('INSERT needs a column list')
   if (ast.values?.type !== 'values') throw unsupported('Only INSERT ... VALUES is supported')
 
-  const allowed = new Set(rule.columns.map(c => c.toLowerCase()))
   const columns = ast.columns.map(columnName)
   const seen = new Set()
   for (const column of columns) {
     const lower = column.toLowerCase()
-    if (!allowed.has(lower)) throw new PolicyError('COLUMN_DENIED', `Column ${column} may not be inserted`, { table: table.name, column })
+    if (!allows(rule.columns, lower)) throw new PolicyError('COLUMN_DENIED', `Column ${column} may not be inserted`, { table: table.name, column })
     if (seen.has(lower)) throw unsupported(`Column ${column} is listed twice`)
     seen.add(lower)
   }
@@ -479,14 +492,13 @@ function update (st, ast) {
   }
   const table = target(st, ast.table)
   const rule = ruleFor(st, table, 'update')
-  const allowed = new Set(rule.columns.map(c => c.toLowerCase()))
   const scope = { ctes: new Set(), write: { table, columns: table.known } }
   const access = accessFor(st, table.name)
 
   for (const item of ast.set) {
     const column = columnName(item.column)
     if (item.table && item.table.toLowerCase() !== table.name.toLowerCase()) throw unsupported('Unsupported SET target')
-    if (!allowed.has(column.toLowerCase())) throw new PolicyError('COLUMN_DENIED', `Column ${column} may not be updated`, { table: table.name, column })
+    if (!allows(rule.columns, column)) throw new PolicyError('COLUMN_DENIED', `Column ${column} may not be updated`, { table: table.name, column })
     writeValue(st, item.value, scope)
   }
   for (const [column, value] of forcedValues(st, table, rule)) {
@@ -498,7 +510,7 @@ function update (st, ast) {
   for (const item of ast.set) access.update.add(columnName(item.column).toLowerCase())
 
   expr(st, ast.where, scope)
-  for (const column of table.known) access.read.add(column)
+  for (const column of readable(table)) access.read.add(column)
   ast.where = and(ast.where, rowFilter(st, table, 'update'))
 }
 
@@ -518,7 +530,7 @@ function remove (st, ast) {
   const scope = { ctes: new Set(), write: { table, columns: table.known } }
   expr(st, ast.where, scope)
   const access = accessFor(st, table.name)
-  for (const column of table.known) access.read.add(column)
+  for (const column of readable(table)) access.read.add(column)
   access.delete = true
   ast.where = and(ast.where, rowFilter(st, table, 'delete'))
 }

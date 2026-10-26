@@ -91,7 +91,7 @@ Tables, columns and operations that are not listed do not exist for the client.
 
 | Key | Value |
 |---|---|
-| `columns` | **Required.** Columns the client can see. Every other column is invisible. |
+| `columns` | **Required.** Columns the client can see, or `'*'` for every column. Every other column is invisible. |
 | `select` | `true`, `(ctx) => boolean` or `{ allow?, where? }` |
 | `insert` | `true`, `(ctx) => boolean` or `{ allow?, columns?, set? }` |
 | `update` | `true`, `(ctx) => boolean` or `{ allow?, columns?, set?, where? }` |
@@ -102,8 +102,13 @@ Tables, columns and operations that are not listed do not exist for the client.
   `'revoked = 0'`, `['user_id = ?', ctx.userId]`, `true`/`null` for
   every row, or `false` for no row. It may use columns that are not in
   `columns`.
+- `columns: '*'` exposes every column of the table, including ones added
+  later. The table is then wrapped as `(SELECT * FROM t WHERE …)`, and
+  `schema()` reports `columns: '*'`. Only use it for tables with nothing to
+  hide.
 - `columns` on insert/update lists the columns the client may write. It
-  defaults to the table's `columns`, and must be a subset of them.
+  defaults to the table's `columns`, and must be a subset of them. It can be
+  `'*'` only when the table's `columns` is `'*'`.
 - `set(ctx)` returns values that are always written, e.g.
   `{ user_id: ctx.userId }`. They replace whatever the client sent, and may
   name columns the client cannot see.

@@ -6,6 +6,13 @@ import { PolicyError } from './errors.js'
  * @typedef {{ sql: string, access: Record<string, { read: string[], insert: string[], update: string[], delete: boolean }> }} AuthorizeResult
  */
 
+/**
+ * '*' in an access list stands for every column of the table
+ * @param {string[]} list
+ * @param {string} column
+ */
+const has = (list, column) => list.includes('*') || list.includes(column.toLowerCase())
+
 // Functions SQLite calls on its own when evaluating operators
 const OPERATOR_FUNCTIONS = ['like', 'glob', '->', '->>']
 
@@ -54,11 +61,11 @@ function createVerifier (schema, options = {}) {
           return c.SQLITE_OK
         case c.SQLITE_READ:
           // An empty column name is a read of the row itself, e.g. count(*)
-          return allow(arg1, a => !arg2 || a.read.includes(arg2.toLowerCase()), `read ${arg1}.${arg2}`)
+          return allow(arg1, a => !arg2 || has(a.read, arg2), `read ${arg1}.${arg2}`)
         case c.SQLITE_INSERT:
           return allow(arg1, a => a.insert.length > 0, `insert into ${arg1}`)
         case c.SQLITE_UPDATE:
-          return allow(arg1, a => a.update.includes(String(arg2).toLowerCase()), `update ${arg1}.${arg2}`)
+          return allow(arg1, a => has(a.update, String(arg2)), `update ${arg1}.${arg2}`)
         case c.SQLITE_DELETE:
           return allow(arg1, a => a.delete, `delete from ${arg1}`)
         case c.SQLITE_FUNCTION:
